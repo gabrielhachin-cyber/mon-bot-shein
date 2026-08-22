@@ -16,7 +16,7 @@ export default async function handler(req, res) {
 
   if (text.startsWith("/start")) {
     await sendTelegramMessage(BOT_TOKEN, chatId,
-      "Salut ! Envoie-moi :\n/post <lien> [prix] [code_promo] [lien_coupon]\net je poste le produit dans le canal.");
+      "Salut ! Envoie-moi :\n/post <lien> [prix] [code_promo] [lien_coupon] [titre]\net je poste le produit dans le canal.");
     return res.status(200).send("ok");
   }
 
@@ -26,19 +26,25 @@ export default async function handler(req, res) {
     const prixManuel = parts[2];
     const code = parts[3];
     const coupon = parts[4];
+    const titreManuel = parts.slice(5).join(" ");
 
     if (!lien) {
       await sendTelegramMessage(BOT_TOKEN, chatId,
-        "Usage : /post <lien> [prix] [code_promo] [lien_coupon]");
+        "Usage : /post <lien> [prix] [code_promo] [lien_coupon] [titre]");
       return res.status(200).send("ok");
     }
 
     await sendTelegramMessage(BOT_TOKEN, chatId, "⏳ Récupération des infos du produit...");
 
     const infos = await extraireInfosProduit(lien);
-    let titre = infos.titre || "Produit";
-    titre = titre.split(",")[0].trim();
-    if (titre.length > 70) titre = titre.slice(0, 70).trim() + "...";
+    let titre;
+    if (titreManuel) {
+      titre = titreManuel;
+    } else {
+      titre = infos.titre || "Produit";
+      titre = titre.split(",")[0].trim();
+      if (titre.length > 70) titre = titre.slice(0, 70).trim() + "...";
+    }
     const prix = prixManuel || infos.prix || "Voir sur le site";
     const image = infos.image;
 
@@ -111,4 +117,3 @@ async function sendTelegramPhoto(token, chatId, photoUrl, caption) {
     body: JSON.stringify({ chat_id: chatId, photo: photoUrl, caption }),
   });
 }
-
