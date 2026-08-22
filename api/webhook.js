@@ -6,7 +6,6 @@ export default async function handler(req, res) {
   const BOT_TOKEN = process.env.BOT_TOKEN;
   const CHANNEL_ID = process.env.CHANNEL_ID;
 
-  // Lien de coupon fixe, ajouté automatiquement à chaque post
   const LIEN_COUPON_FIXE = "https://onelink.shein.com/49/5zmbn9et0oec";
 
   const message = req.body.message;
@@ -48,13 +47,15 @@ export default async function handler(req, res) {
       if (titre.length > 70) titre = titre.slice(0, 70).trim() + "...";
     }
     const prix = prixManuel || infos.prix || "Voir sur le site";
-    const image = infos.image;
+    const images = infos.images;
 
     const texteMessage = formaterMessage(titre, prix, lien, code, LIEN_COUPON_FIXE);
 
     try {
-      if (image) {
-        await sendTelegramPhoto(BOT_TOKEN, CHANNEL_ID, image, texteMessage);
+      if (images.length >= 2) {
+        await sendTelegramMediaGroup(BOT_TOKEN, CHANNEL_ID, images.slice(0, 2), texteMessage);
+      } else if (images.length === 1) {
+        await sendTelegramPhoto(BOT_TOKEN, CHANNEL_ID, images[0], texteMessage);
       } else {
         await sendTelegramMessage(BOT_TOKEN, CHANNEL_ID, texteMessage);
       }
@@ -83,39 +84,22 @@ async function extraireInfosProduit(lien) {
       return match ? match[1].trim() : null;
     };
 
+    const getAllImages = () => {
+      const regex = /<meta[^>]+property=["']og:image["'][^>]+content=["']([^"']+)["']/gi;
+      const results = [];
+      let match;
+      while ((match = regex.exec(html)) !== null) {
+        results.push(match[1].trim());
+      }
+      return results;
+    };
+
     const titreMatch = html.match(/<title>([^<]+)<\/title>/i);
 
     return {
       titre: getMeta("og:title") || (titreMatch ? titreMatch[1].trim() : null),
-      image: getMeta("og:image"),
+      images: getAllImages(),
       prix: getMeta("product:price:amount") || getMeta("og:price:amount"),
     };
   } catch (e) {
-    return { titre: null, image: null, prix: null };
-  }
-}
-
-function formaterMessage(titre, prix, lien, code, coupon) {
-  let lignes = [`🔍 ${titre}`];
-  if (prix) lignes.push(`💸 Prix : ${prix}`);
-  lignes.push(`🔗 Lien : ${lien}`);
-  if (code) lignes.push(`💻 Code : ${code}`);
-  if (coupon) lignes.push(`🌍 -60% coupons : ${coupon}`);
-  return lignes.join("\n");
-}
-
-async function sendTelegramMessage(token, chatId, text) {
-  await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ chat_id: chatId, text }),
-  });
-}
-
-async function sendTelegramPhoto(token, chatId, photoUrl, caption) {
-  await fetch(`https://api.telegram.org/bot${token}/sendPhoto`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ chat_id: chatId, photo: photoUrl, caption }),
-  });
-}
+    return { titre: null, images: [], prix: null };
