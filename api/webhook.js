@@ -16,7 +16,7 @@ export default async function handler(req, res) {
 
   if (text.startsWith("/start")) {
     await sendTelegramMessage(BOT_TOKEN, chatId,
-      "Salut ! Envoie-moi :\n/post <lien> [prix] [code_promo]\net je poste le produit dans le canal.");
+      "Salut ! Envoie-moi :\n/post <lien> [prix] [code_promo] [lien_coupon]\net je poste le produit dans le canal.");
     return res.status(200).send("ok");
   }
 
@@ -25,21 +25,24 @@ export default async function handler(req, res) {
     const lien = parts[1];
     const prixManuel = parts[2];
     const code = parts[3];
+    const coupon = parts[4];
 
     if (!lien) {
       await sendTelegramMessage(BOT_TOKEN, chatId,
-        "Usage : /post <lien> [prix] [code_promo]\nExemple : /post https://exemple.com/produit 52,04€ G3Z7989");
+        "Usage : /post <lien> [prix] [code_promo] [lien_coupon]");
       return res.status(200).send("ok");
     }
 
     await sendTelegramMessage(BOT_TOKEN, chatId, "⏳ Récupération des infos du produit...");
 
     const infos = await extraireInfosProduit(lien);
-    const titre = infos.titre || "Produit";
+    let titre = infos.titre || "Produit";
+    titre = titre.split(",")[0].trim();
+    if (titre.length > 70) titre = titre.slice(0, 70).trim() + "...";
     const prix = prixManuel || infos.prix || "Voir sur le site";
     const image = infos.image;
 
-    const texteMessage = formaterMessage(titre, prix, lien, code);
+    const texteMessage = formaterMessage(titre, prix, lien, code, coupon);
 
     try {
       if (image) {
@@ -84,11 +87,12 @@ async function extraireInfosProduit(lien) {
   }
 }
 
-function formaterMessage(titre, prix, lien, code) {
+function formaterMessage(titre, prix, lien, code, coupon) {
   let lignes = [`🔍 ${titre}`];
   if (prix) lignes.push(`💸 Prix : ${prix}`);
   lignes.push(`🔗 Lien : ${lien}`);
   if (code) lignes.push(`💻 Code : ${code}`);
+  if (coupon) lignes.push(`🌍 -60% coupons : ${coupon}`);
   return lignes.join("\n");
 }
 
@@ -107,3 +111,4 @@ async function sendTelegramPhoto(token, chatId, photoUrl, caption) {
     body: JSON.stringify({ chat_id: chatId, photo: photoUrl, caption }),
   });
 }
+
